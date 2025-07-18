@@ -43,9 +43,10 @@ export default function TicketDetail() {
     <div className="flex min-h-screen">
       <Sidebar selected={bookingType} onSelect={(type) => navigate(`/dashboard/${type}`)} />
       <div className="flex-1 p-6 bg-white text-sm text-black">
+        <h1 className="text-2xl font-semibold mb-4 text-black">{bookingType}</h1>
         <button
           onClick={() => navigate(`/dashboard/${bookingType}`)}
-          className="mb-4 text-sm text-blue-600 underline"
+          className="mb-4 text-sm text-white"
         >
           ← Back to tickets
         </button>
@@ -71,10 +72,14 @@ export default function TicketDetail() {
           <p><strong>Customer Email:</strong> {ticket.custEmail}</p>
           <p><strong>Vehicle:</strong> {ticket.vehicle}</p>
           <p><strong>Amount Payable:</strong> ₹{ticket.amount}</p>
-          <p><strong>Guests:</strong> {ticket.guests || "—"}</p>
+          <p><strong>Guests:</strong> {ticket.passengers || "—"}</p>
           <p><strong>Date:</strong> {ticket.date}</p>
           <p><strong>From:</strong> {ticket.fromLoc}</p>
           <p><strong>To:</strong> {ticket.toLoc}</p>
+          {/* ✅ Show KMs Slab only for Local/Outstation rides */}
+          {(bookingType === "Local Rides" || bookingType === "Outstation Rides") && ticket.kmsSlab && (
+            <p><strong>KMs Slab:</strong> {ticket.kmsSlab}</p>
+          )}
         </div>
 
         <div className="flex flex-col md:flex-row gap-4">
