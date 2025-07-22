@@ -20,13 +20,13 @@ export default function Sidebar({ selected }) {
         {/* Home Button */}
         <button
           onClick={() => navigate("/dashboard")}
-          className={`text-white w-full text-left px-4 py-2 rounded-lg transition-all flex items-center gap-2 ${
+          className={`w-full text-left px-4 py-2 rounded-lg transition-all flex items-center gap-2 ${
             !selected
-              ? "bg-yellow-400 text-yellow-400 font-semibold"
-              : "hover:bg-white"
+              ? "bg-yellow-400 text-black font-semibold"
+              : "hover:bg-white/10"
           }`}
         >
-          <span>Home</span>
+          🏠 <span>Home</span>
         </button>
 
         {/* Booking Type Buttons */}
@@ -34,15 +34,27 @@ export default function Sidebar({ selected }) {
           <button
             key={type}
             onClick={() => navigate(`/dashboard/${type}`)}
-            className={`text-white w-full text-left px-4 py-2 rounded-lg transition-all ${
+            className={`w-full text-left px-4 py-2 rounded-lg transition-all ${
               selected === type
-                ? "bg-yellow-400 text-yellow-400 font-semibold"
-                : "hover:bg-white"
+                ? "bg-yellow-400 text-black font-semibold"
+                : "hover:bg-white/10"
             }`}
           >
             {type}
           </button>
         ))}
+
+        {/* All Tickets Button */}
+        <button
+          onClick={() => navigate("/all-tickets")}
+          className={`w-full text-left px-4 py-2 rounded-lg transition-all ${
+            selected === "all"
+              ? "bg-yellow-400 text-black font-semibold"
+              : "hover:bg-white/10"
+          }`}
+        >
+          🧾 All Tickets
+        </button>
       </nav>
     </div>
   );

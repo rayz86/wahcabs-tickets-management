@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import Dashboard from "./pages/Dashboard";
 import TicketListPage from "./pages/TicketListPage";
 import TicketDetail from "./pages/TicketDetail";
+import AllTicketsPage from "./pages/AllTicketsPage";
 
 export default function App() {
   return (
@@ -11,6 +12,7 @@ export default function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/dashboard/:bookingType" element={<TicketListPage />} />
         <Route path="/dashboard/:bookingType/:ticketId" element={<TicketDetail />} />
+        <Route path="/all-tickets" element={<AllTicketsPage />} />
       </Routes>
     </Router>
   );

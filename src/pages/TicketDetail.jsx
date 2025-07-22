@@ -9,6 +9,7 @@ export default function TicketDetail() {
   const [ticket, setTicket] = useState(null);
   const [status, setStatus] = useState("");
   const [actions, setActions] = useState("");
+  const [payment, setPayment] = useState("");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -20,6 +21,7 @@ export default function TicketDetail() {
         setTicket(data);
         setStatus(data.status);
         setActions(data.actions || "");
+        setPayment(data.payment || "0");
       }
     };
     fetchTicket();
@@ -27,7 +29,7 @@ export default function TicketDetail() {
 
   const handleSave = async () => {
     const ref = doc(db, "tickets", bookingType, "bookings", ticketId);
-    await updateDoc(ref, { status, actions });
+    await updateDoc(ref, { status, actions, payment });
     alert("✅ Ticket updated!");
     navigate(`/dashboard/${bookingType}`);
   };
@@ -41,12 +43,12 @@ export default function TicketDetail() {
 
   return (
     <div className="flex min-h-screen">
-      <Sidebar selected={bookingType} onSelect={(type) => navigate(`/dashboard/${type}`)} />
+      <Sidebar selected={bookingType} />
       <div className="flex-1 p-6 bg-white text-sm text-black">
         <h1 className="text-2xl font-semibold mb-4 text-black">{bookingType}</h1>
         <button
           onClick={() => navigate(`/dashboard/${bookingType}`)}
-          className="mb-4 text-sm text-white"
+          className="mb-4 text-sm text-blue-600 hover:underline"
         >
           ← Back to tickets
         </button>
@@ -59,6 +61,8 @@ export default function TicketDetail() {
                 ? "bg-green-500"
                 : status === "Processed"
                 ? "bg-yellow-500 text-black"
+                : status === "Cancelled"
+                ? "bg-red-600"
                 : "bg-gray-600"
             }`}
           >
@@ -76,27 +80,44 @@ export default function TicketDetail() {
           <p><strong>Date:</strong> {ticket.date}</p>
           <p><strong>From:</strong> {ticket.fromLoc}</p>
           <p><strong>To:</strong> {ticket.toLoc}</p>
-          {/* ✅ Show KMs Slab only for Local/Outstation rides */}
+          {(bookingType === "Local Rides" || bookingType === "Outstation Rides") && ticket.tripType && ticket.tripType !== "N/A" && (
+          <p><strong>Trip Type:</strong> {ticket.tripType}</p>
+          )}
           {(bookingType === "Local Rides" || bookingType === "Outstation Rides") && ticket.kmsSlab && (
             <p><strong>KMs Slab:</strong> {ticket.kmsSlab}</p>
           )}
+          {(bookingType === "Local Rides" || bookingType === "Outstation Rides") && ticket.rideType && (
+            <p><strong>Ride Type:</strong> {ticket.rideType}</p>
+          )}
         </div>
 
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="w-full md:w-1/2">
-            <label className="block font-medium mb-1">Set Current Status:</label>
-            <select
-              className="w-full border rounded p-2"
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-            >
-              <option value="Active">Active</option>
-              <option value="Processed">Processed</option>
-              <option value="Finished">Finished</option>
-            </select>
-          </div>
+        {/* Status */}
+        <div className="mt-4 md:w-1/2">
+          <label className="block font-medium mb-1">Set Current Status:</label>
+          <select
+            className="w-full border rounded p-2"
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+          >
+            <option value="Active">Active</option>
+            <option value="Processed">Processed</option>
+            <option value="Closed">Closed</option>
+            <option value="Cancelled">Cancelled</option>
+          </select>
         </div>
 
+        {/* Payment */}
+        <div className="mt-4 md:w-1/2">
+          <label className="block font-medium mb-1">Pending Payment (₹):</label>
+          <input
+            type="number"
+            className="w-full border rounded p-2"
+            value={payment}
+            onChange={(e) => setPayment(e.target.value)}
+          />
+        </div>
+
+        {/* Actions */}
         <div className="mt-6">
           <label className="block font-medium mb-1">Actions taken:</label>
           <textarea

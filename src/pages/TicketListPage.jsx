@@ -28,6 +28,7 @@ export default function TicketListPage() {
         <TicketTable
           tickets={tickets}
           onSelect={(ticket) => navigate(`/dashboard/${bookingType}/${ticket.id}`)}
+          bookingType={bookingType}
         />
       </div>
     </div>
