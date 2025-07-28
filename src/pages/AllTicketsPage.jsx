@@ -76,10 +76,10 @@ export default function AllTicketsPage() {
   const totalRevenue = tickets.reduce((sum, ticket) => sum + (parseInt(ticket.amount) || 0), 0);
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-black">
+    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-black">
       <Sidebar selected="all" />
       
-      <div className="flex-1 relative overflow-hidden">
+      <div className="ml-80 relative overflow-hidden min-h-screen">
         {/* Background decorations */}
         <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-pink-500/5"></div>
         <div className="absolute top-0 right-0 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl"></div>

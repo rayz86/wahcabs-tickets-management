@@ -15,7 +15,7 @@ export default function Sidebar({ selected }) {
   const isTypeActive = (type) => selected === type;
 
   return (
-    <div className="w-80 min-h-screen relative">
+    <div className="w-80 h-screen fixed left-0 top-0 z-50 overflow-y-auto">
       {/* Background with glassmorphism */}
       <div className="absolute inset-0 bg-gradient-to-br from-black/40 via-gray-900/30 to-black/40 backdrop-blur-xl border-r border-white/10"></div>
       
@@ -23,7 +23,7 @@ export default function Sidebar({ selected }) {
       <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 via-transparent to-emerald-500/5"></div>
       
       {/* Content */}
-      <div className="relative z-10 p-8 h-full">
+      <div className="relative z-10 p-8 h-full flex flex-col">
         {/* Logo/Brand */}
         <div className="mb-12">
           <div className="flex items-center gap-3 mb-2">
@@ -39,7 +39,7 @@ export default function Sidebar({ selected }) {
         </div>
 
         {/* Navigation */}
-        <nav className="space-y-3">
+        <nav className="space-y-3 flex-1 overflow-y-auto">
           {/* Dashboard/Home Button */}
           <button
             onClick={() => navigate("/dashboard")}
@@ -141,7 +141,7 @@ export default function Sidebar({ selected }) {
         </nav>
 
         {/* Bottom section with stats or additional info */}
-        <div className="absolute bottom-8 left-8 right-8">
+        <div className="mt-8 flex-shrink-0">
           <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-xl p-4 backdrop-blur-sm">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
