@@ -9,6 +9,8 @@ import RegularGoaInvoice from "../components/invoices/RegularGoaInvoice";
 import RegularOutstationInvoice from "../components/invoices/RegularOutstationInvoice";
 import GSTGoaInvoice from "../components/invoices/GSTGoaInvoice";
 import GSTOutstationInvoice from "../components/invoices/GSTOutstationInvoice";
+import domtoimage from "dom-to-image-more";
+import EmailSmsForm from "../components/EmailSmsForm";
 
 
 export default function TicketDetail() {
@@ -59,42 +61,54 @@ const [igst, setIGST] = useState("");
 const [totalAmount, setTotalAmount] = useState("4000"); // can be fetched dynamically
 
 const generateInvoicePDF = async () => {
-  const input = document.getElementById("invoice-export");
+  const originalNode = document.getElementById("invoice-content");
 
-  if (!input) {
-    alert("⚠️ Invoice element not found.");
+  if (!originalNode) {
+    console.error("The invoice content element was not found!");
     return;
   }
 
-  // Wait for rendering
-  await new Promise((resolve) => setTimeout(resolve, 100)); // let React fully paint it
+  const clone = originalNode.cloneNode(true);
+
+  clone.style.position = 'absolute';
+  clone.style.top = '-9999px';
+  clone.style.left = '0px';
+  clone.style.width = originalNode.offsetWidth + 'px';
+
+  const allElements = clone.querySelectorAll('*');
+  allElements.forEach((el) => {
+    // --- THIS IS THE NEW LOGIC ---
+    // Only strip styles if the element is NOT the amount box
+    if (el.id !== 'amount-box') {
+      el.style.border = 'none';
+      el.style.outline = 'none';
+      el.style.boxShadow = 'none';
+    }
+  });
+
+  document.body.appendChild(clone);
 
   try {
-    const canvas = await html2canvas(input, {
+    const dataUrl = await domtoimage.toPng(clone, {
+      quality: 1.0,
       scale: 2,
-      useCORS: true,
-      backgroundColor: "#fff",
     });
 
-    const imgData = canvas.toDataURL("image/png");
+    const pdf = new jsPDF("p", "mm", "a4", true);
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const imgProps = pdf.getImageProperties(dataUrl);
+    const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
 
-    if (!imgData || imgData.length < 1000) {
-      throw new Error("Canvas image too small or invalid.");
-    }
-
-    const pdf = new jsPDF("p", "mm", "a4");
-    const width = pdf.internal.pageSize.getWidth();
-    const height = (canvas.height * width) / canvas.width;
-
-    pdf.addImage(imgData, "PNG", 0, 0, width, height);
-    console.log("Invoice innerHTML:", input.innerHTML);
+    pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, imgHeight);
     pdf.save(`invoice-${ticketId}.pdf`);
+
   } catch (error) {
-    console.error("PDF generation failed:", error);
-    alert("❌ PDF generation failed. See console for details.");
+    console.error("PDF generation failed!", error);
+    
+  } finally {
+    document.body.removeChild(clone);
   }
 };
-
 
   if (!ticket)
     return (
@@ -345,7 +359,7 @@ const generateInvoicePDF = async () => {
   </div>
 
   {/* Render Invoice Preview */}
-  <div id="invoice" className="my-6 flex justify-center bg-gray-800 p-4 rounded-lg shadow-md">
+  <div id="invoice-export" className="my-6 flex justify-center bg-gray-800 p-4 rounded-lg shadow-md">
     {invoiceType === "Regular - Goa" && (
       <RegularGoaInvoice ticket={ticket} ticketId={ticketId} bookingType={bookingType} totalAmount={totalAmount} sgst={sgst} cgst={cgst} />
     )}
@@ -361,22 +375,21 @@ const generateInvoicePDF = async () => {
   </div>
   {/* Generate PDF Button */}
   <div className="mt-6 flex justify-end">
-    <button
-      onClick={generateInvoicePDF}
-      className="btn-primary flex items-center gap-2"
-    >
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M12 11V3m0 0l3.5 3.5M12 3L8.5 6.5M12 21h8m-8 0H4m8 0v-4"
-        />
-      </svg>
-      Generate PDF Invoice
-    </button>
-  </div>
+                <button
+                    onClick={generateInvoicePDF}
+                    className="btn-primary flex items-center gap-2"
+                >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11V3m0 0l3.5 3.5M12 3L8.5 6.5M12 21h8m-8 0H4m8 0v-4" />
+                    </svg>
+                    Generate PDF Invoice
+                </button>
+            </div>
 </div>
+{ticket && (
+  <EmailSmsForm ticket={{ ...ticket, id: ticketId, bookingType }} />
+)}
+
 
         </div>
       </div>

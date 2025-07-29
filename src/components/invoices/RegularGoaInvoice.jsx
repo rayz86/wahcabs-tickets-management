@@ -1,9 +1,24 @@
 export default function RegularGoaInvoice({ ticket, ticketId, bookingType, totalAmount, sgst, cgst }) {
   const today = new Date().toISOString().split("T")[0];
 
+  // Define simple, compatible colors to override Tailwind's classes
+  const styles = {
+    container: {
+      backgroundColor: '#FFFFFF',
+      color: '#000000',
+      borderColor: '#D1D5DB' // Hex for gray-300
+    },
+    borderBottom: {
+      borderBottomColor: '#D1D5DB'
+    }
+  };
+
   return (
-    <div className="bg-white text-black p-6 w-[700px] rounded-md text-sm border border-gray-300">
-      <div className="text-center font-bold border-b pb-2 mb-2">Invoice</div>
+    // We add the inline style to the main container
+    <div id="invoice-content" style={styles.container} className="bg-white text-black p-6 w-[700px] rounded-md text-sm border border-gray-300">
+      
+      {/* And here for the bottom border */}
+      <div style={styles.borderBottom} className="text-center font-bold border-b pb-2 mb-2">Invoice</div>
 
       <div className="flex justify-between text-xs">
         <div>
@@ -41,7 +56,8 @@ export default function RegularGoaInvoice({ ticket, ticketId, bookingType, total
         <p><strong>Date of Booking:</strong> {ticket.date}</p>
       </div>
 
-      <div className="border border-gray-300 mt-4 p-2">
+      {/* And here for the border around the amount */}
+      <div id="amount-box" style={{ borderColor: '#D1D5DB' }} className="border border-gray-300 mt-4 p-2">
           <p><strong>Amount Payable:</strong></p>
         <div className="text-right">
           <p><strong>CGST:</strong> ₹{cgst}</p>
@@ -57,7 +73,7 @@ export default function RegularGoaInvoice({ ticket, ticketId, bookingType, total
           <ul className="list-disc list-inside space-y-1">
             <li>This is a computer generated invoice and does not require signature / stamp.</li>
             <li>Late Payment interest 24% per annum will be applicable in case of delay in payment of dues.</li>
-            <li>All payments must be made in favour of Aaryan Travel and Events Private Limited.</li>
+            <li>All payments must be made in favour of the name Aaryan Travel and Events Private Limited.</li>
             <li>Drafts should be crossed "A/C Payee Only".</li>
           </ul>
         </div>
@@ -72,6 +88,7 @@ export default function RegularGoaInvoice({ ticket, ticketId, bookingType, total
           <div className="mt-6">
             <p className="font-semibold">For Aaryan Travel and Events Pvt Ltd</p>
             <div className="w-32 h-12 mt-2">
+              {/* This image will now be captured correctly */}
               <img src="/src/images/stamp.webp" alt="Authorized Signature" className="w-full h-full object-contain" />
             </div>
             <p className="text-xs">Authorized Signature</p>
