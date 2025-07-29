@@ -1,4 +1,6 @@
-export default function GSTOutstationInvoice({ ticket, ticketId, bookingType, totalAmount, sgst, cgst }) {
+import stampImage from "../../images/stamp.webp";
+
+export default function GSTOutstationInvoice({ ticket, ticketId, bookingType, totalAmount, partyName, partyGST, igst }) {
   const today = new Date().toISOString().split("T")[0];
 
   return (
@@ -67,8 +69,8 @@ export default function GSTOutstationInvoice({ ticket, ticketId, bookingType, to
           <p>IFSC: _______</p>
           <div className="mt-6">
             <p className="font-semibold">For Aaryan Travel and Events Pvt Ltd</p>
-            <div className="w-32 h-12 border mt-2">
-              <img src="/path-to-your-signature.png" alt="Authorized Signature" className="w-full h-full object-contain" />
+            <div className="w-32 h-12 mt-2">
+              <img src={stampImage} alt="Authorized Signature" className="w-full h-full object-contain" />
             </div>
             <p className="text-xs">Authorized Signature</p>
           </div>

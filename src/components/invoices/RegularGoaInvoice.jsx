@@ -1,3 +1,5 @@
+import stampImage from "../../images/stamp.webp";
+
 export default function RegularGoaInvoice({ ticket, ticketId, bookingType, totalAmount, sgst, cgst }) {
   const today = new Date().toISOString().split("T")[0];
 
@@ -72,7 +74,7 @@ export default function RegularGoaInvoice({ ticket, ticketId, bookingType, total
           <div className="mt-6">
             <p className="font-semibold">For Aaryan Travel and Events Pvt Ltd</p>
             <div className="w-32 h-12 mt-2">
-              <img src="/src/images/stamp.webp" alt="Authorized Signature" className="w-full h-full object-contain" />
+              <img src={stampImage} alt="Authorized Signature" className="w-full h-full object-contain" />
             </div>
             <p className="text-xs">Authorized Signature</p>
           </div>
