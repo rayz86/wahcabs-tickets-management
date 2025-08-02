@@ -1,3 +1,5 @@
+// src/pages/TicketDetail.jsx
+
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { doc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
@@ -5,11 +7,10 @@ import { db } from "../firebase/config";
 import Sidebar from "../components/Sidebar";
 import jsPDF from "jspdf";
 import domtoimage from "dom-to-image-more";
-import RegularGoaInvoice from "../components/invoices/RegularGoaInvoice";
-import RegularOutstationInvoice from "../components/invoices/RegularOutstationInvoice";
-import GSTGoaInvoice from "../components/invoices/GSTGoaInvoice";
-import GSTOutstationInvoice from "../components/invoices/GSTOutstationInvoice";
 import EmailSmsForm from "../components/EmailSmsForm";
+
+// Import the new unified Invoice component
+import Invoice from "../components/invoices/invoice";
 
 export default function TicketDetail() {
   const { bookingType, ticketId } = useParams();
@@ -18,7 +19,7 @@ export default function TicketDetail() {
   const [actions, setActions] = useState("");
   const navigate = useNavigate();
 
-  // New state for payment management
+  // Payment management state
   const [newPaymentAmount, setNewPaymentAmount] = useState("");
   const [newPaymentNote, setNewPaymentNote] = useState("");
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
@@ -74,22 +75,19 @@ export default function TicketDetail() {
         date: new Date().toISOString(),
       };
 
-      // Calculate new totals
       const currentTotalPaid = Number(ticket.payment) || 0;
       const newTotalPaid = currentTotalPaid + amount;
       const newPendingAmount = (Number(ticket.price) || 0) - newTotalPaid;
 
-      // Update Firestore document
       await updateDoc(ticketRef, {
         payment: newTotalPaid,
         pendingAmount: newPendingAmount,
         paymentHistory: arrayUnion(newPaymentRecord),
       });
 
-      // Reset form and refetch data to show updated state
       setNewPaymentAmount("");
       setNewPaymentNote("");
-      await fetchTicket(); // Refetch to get the latest ticket data
+      await fetchTicket();
       alert("✅ Payment added successfully!");
 
     } catch (error) {
@@ -100,55 +98,62 @@ export default function TicketDetail() {
     }
   };
 
-const generateInvoicePDF = async () => {
-  const originalNode = document.getElementById("invoice-content");
-
-  if (!originalNode) {
-    console.error("The invoice content element was not found!");
-    return;
-  }
-
-  const clone = originalNode.cloneNode(true);
-
-  clone.style.position = 'absolute';
-  clone.style.top = '-9999px';
-  clone.style.left = '0px';
-  clone.style.width = originalNode.offsetWidth + 'px';
-
-  const allElements = clone.querySelectorAll('*');
-  allElements.forEach((el) => {
-    // --- THIS IS THE NEW LOGIC ---
-    // Only strip styles if the element is NOT the amount box
-    if (el.id !== 'amount-box') {
-      el.style.border = 'none';
-      el.style.outline = 'none';
-      el.style.boxShadow = 'none';
+  const generateInvoicePDF = async () => {
+    const originalNode = document.getElementById("invoice-content");
+    if (!originalNode) {
+      console.error("The invoice content element was not found!");
+      return;
     }
-  });
+    // Clone the node to avoid modifying the one on screen
+    const clone = originalNode.cloneNode(true);
 
-  document.body.appendChild(clone);
-
-  try {
-    const dataUrl = await domtoimage.toPng(clone, {
-      quality: 1.0,
-      scale: 2,
+    // Position the clone off-screen so it's not visible
+    clone.style.position = 'absolute';
+    clone.style.top = '-9999px';
+    clone.style.left = '0px';
+    clone.style.width = originalNode.offsetWidth + 'px';
+    
+    // **FIXED LOGIC**: Remove borders and shadows from the clone before generating the image.
+    // This cleans up the styles from the container `div` but preserves the invoice's own styles.
+    const allElements = clone.querySelectorAll('*');
+    allElements.forEach((el) => {
+      // We keep the border for the amount box for styling purposes.
+      if (el.id !== 'amount-box') {
+        el.style.border = 'none';
+        el.style.outline = 'none';
+        el.style.boxShadow = 'none';
+      }
     });
 
-    const pdf = new jsPDF("p", "mm", "a4", true);
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const imgProps = pdf.getImageProperties(dataUrl);
-    const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
-
-    pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, imgHeight);
-    pdf.save(`invoice-${ticketId}.pdf`);
-
-  } catch (error) {
-    console.error("PDF generation failed!", error);
+    // The parent container of the invoice preview also has styles that need to be removed.
+    const parentContainer = document.getElementById("invoice-export");
+    const parentClone = parentContainer.cloneNode(true);
+    parentClone.style.backgroundColor = 'transparent';
+    parentClone.style.padding = '0';
+    parentClone.style.boxShadow = 'none';
     
-  } finally {
-    document.body.removeChild(clone);
-  }
-};
+    // Replace the invoice clone with the cleaned parent clone for rendering
+    parentClone.innerHTML = '';
+    parentClone.appendChild(clone);
+    document.body.appendChild(parentClone);
+
+
+    try {
+      // Generate the image from the modified clone
+      const dataUrl = await domtoimage.toPng(clone, { quality: 1.0, scale: 2 });
+      const pdf = new jsPDF("p", "mm", "a4", true);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const imgProps = pdf.getImageProperties(dataUrl);
+      const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, imgHeight);
+      pdf.save(`invoice-${ticketId}.pdf`);
+    } catch (error) {
+      console.error("PDF generation failed!", error);
+    } finally {
+      // Clean up by removing the clone from the DOM
+      document.body.removeChild(parentClone);
+    }
+  };
 
   if (!ticket) {
     return (
@@ -192,8 +197,6 @@ const generateInvoicePDF = async () => {
                   {status}
                 </span>
             </div>
-
-            {/* Customer & Booking Details */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 border-b border-gray-800 pb-8">
               <div><label className="text-sm text-gray-400">Customer</label><p className="text-white">{ticket.custName}</p></div>
               <div><label className="text-sm text-gray-400">Email</label><p className="text-white">{ticket.custEmail}</p></div>
@@ -204,8 +207,6 @@ const generateInvoicePDF = async () => {
               <div><label className="text-sm text-gray-400">From</label><p className="text-white">{ticket.fromLoc}</p></div>
               <div><label className="text-sm text-gray-400">To</label><p className="text-white">{ticket.toLoc}</p></div>
             </div>
-
-            {/* Payment Details */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div><label className="text-sm text-gray-400">Amount Payable</label><p className="text-2xl font-bold text-blue-400">₹{Number(ticket.price || 0).toLocaleString()}</p></div>
                 <div><label className="text-sm text-gray-400">Total Paid</label><p className="text-2xl font-bold text-green-400">₹{Number(ticket.payment || 0).toLocaleString()}</p></div>
@@ -213,12 +214,10 @@ const generateInvoicePDF = async () => {
             </div>
           </div>
 
-          {/* Payment History and Management */}
+          {/* Payment and Ticket Management */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Add Payment & History */}
             <div className="card p-8">
               <h3 className="text-xl font-bold text-white mb-6">Payment History</h3>
-              {/* New Payment Form */}
               <div className="space-y-4 mb-8 p-4 border border-gray-800 rounded-lg">
                   <h4 className="font-semibold text-white">Add New Payment</h4>
                   <div>
@@ -233,8 +232,6 @@ const generateInvoicePDF = async () => {
                       {isSubmittingPayment ? "Submitting..." : "Add Payment"}
                   </button>
               </div>
-
-              {/* History List */}
               <div className="space-y-3">
                 {(ticket.paymentHistory && ticket.paymentHistory.length > 0) ? (
                   ticket.paymentHistory.slice().reverse().map((p, index) => (
@@ -252,7 +249,6 @@ const generateInvoicePDF = async () => {
               </div>
             </div>
 
-            {/* Ticket Management */}
             <div className="card p-8">
               <h3 className="text-xl font-bold text-white mb-6">Ticket Management</h3>
               <div className="space-y-6">
@@ -272,106 +268,86 @@ const generateInvoicePDF = async () => {
               </div>
             </div>
           </div>
-          {/* {INVOICE GENERATION} */}
-<div className="card p-8 mt-8">
-  <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
-    <span className="text-blue-400">📄</span>
-    Invoice Preview & Export
-  </h3>
 
-  {/* Invoice Type Selector */}
-  <div className="grid md:grid-cols-2 gap-4 mb-6">
-    <div>
-      <label className="block text-sm font-medium text-gray-400 mb-2">Invoice Type</label>
-      <select
-        className="input-modern w-full"
-        value={invoiceType}
-        onChange={(e) => setInvoiceType(e.target.value)}
-      >
-        {invoiceTypes.map((type) => (
-          <option key={type} value={type}>{type}</option>
-        ))}
-      </select>
-    </div>
+          {/* INVOICE GENERATION */}
+          <div className="card p-8 mt-8">
+            <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
+              <span className="text-blue-400">📄</span>
+              Invoice Preview & Export
+            </h3>
 
-    {/* Party Info (for GST types) */}
-    {(invoiceType.includes("GST")) && (
-      <>
-        <div>
-          <label className="block text-sm text-gray-400 mb-2">Party's Name</label>
-          <input type="text" className="input-modern w-full" value={partyName} onChange={(e) => setPartyName(e.target.value)} />
-        </div>
-        <div>
-          <label className="block text-sm text-gray-400 mb-2">Party's GST</label>
-          <input type="text" className="input-modern w-full" value={partyGST} onChange={(e) => setPartyGST(e.target.value)} />
-        </div>
-      </>
-    )}
+            <div className="grid md:grid-cols-2 gap-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Invoice Type</label>
+                <select className="input-modern w-full" value={invoiceType} onChange={(e) => setInvoiceType(e.target.value)}>
+                  {invoiceTypes.map((type) => (<option key={type} value={type}>{type}</option>))}
+                </select>
+              </div>
 
-    {/* Tax Inputs */}
-    {(invoiceType.includes("Goa")) && (
-      <>
-        <div>
-          <label className="block text-sm text-gray-400 mb-2">SGST (₹)</label>
-          <input type="number" className="input-modern w-full" value={sgst} onChange={(e) => setSGST(e.target.value)}
-          onWheel={(e) => e.target.blur()}/>
-        </div>
-        <div>
-          <label className="block text-sm text-gray-400 mb-2">CGST (₹)</label>
-          <input type="number" className="input-modern w-full" value={cgst} onChange={(e) => setCGST(e.target.value)}
-          onWheel={(e) => e.target.blur()}/>
-        </div>
-      </>
-    )}
-    {(invoiceType.includes("Outstation")) && (
-      <div>
-        <label className="block text-sm text-gray-400 mb-2">IGST (₹)</label>
-        <input type="number" className="input-modern w-full" value={igst} onChange={(e) => setIGST(e.target.value)}
-        onWheel={(e) => e.target.blur()}/>
-      </div>
-    )}
+              {invoiceType.includes("GST") && (
+                <>
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-2">Party's Name</label>
+                    <input type="text" className="input-modern w-full" value={partyName} onChange={(e) => setPartyName(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-2">Party's GST</label>
+                    <input type="text" className="input-modern w-full" value={partyGST} onChange={(e) => setPartyGST(e.target.value)} />
+                  </div>
+                </>
+              )}
 
-    {/* Total Amount */}
-    <div>
-      <label className="block text-sm text-gray-400 mb-2">Total Amount (₹)</label>
-      <input type="number" className="input-modern w-full" value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)}
-      onWheel={(e) => e.target.blur()} />
-    </div>
-  </div>
+              {invoiceType.includes("Goa") ? (
+                <>
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-2">SGST (₹)</label>
+                    <input type="number" className="input-modern w-full" value={sgst} onChange={(e) => setSGST(e.target.value)} onWheel={(e) => e.target.blur()}/>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-2">CGST (₹)</label>
+                    <input type="number" className="input-modern w-full" value={cgst} onChange={(e) => setCGST(e.target.value)} onWheel={(e) => e.target.blur()}/>
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <label className="block text-sm text-gray-400 mb-2">IGST (₹)</label>
+                  <input type="number" className="input-modern w-full" value={igst} onChange={(e) => setIGST(e.target.value)} onWheel={(e) => e.target.blur()}/>
+                </div>
+              )}
 
-  {/* Render Invoice Preview */}
-  <div id="invoice-export" className="my-6 flex justify-center bg-gray-800 p-4 rounded-lg shadow-md">
-    {invoiceType === "Regular - Goa" && (
-      <RegularGoaInvoice ticket={ticket} ticketId={ticketId} bookingType={bookingType} totalAmount={totalAmount} sgst={sgst} cgst={cgst} />
-    )}
-    {invoiceType === "Regular - Outstation" && (
-      <RegularOutstationInvoice ticket={ticket} ticketId={ticketId} bookingType={bookingType} totalAmount={totalAmount} igst={igst} />
-    )}
-    {invoiceType === "GST - Goa" && (
-      <GSTGoaInvoice ticket={ticket} ticketId={ticketId} bookingType={bookingType} totalAmount={totalAmount} partyName={partyName} partyGST={partyGST} sgst={sgst} cgst={cgst} />
-    )}
-    {invoiceType === "GST - Outstation" && (
-      <GSTOutstationInvoice ticket={ticket} ticketId={ticketId} bookingType={bookingType} totalAmount={totalAmount} partyName={partyName} partyGST={partyGST} igst={igst} />
-    )}
-  </div>
-  {/* Generate PDF Button */}
-  <div className="mt-6 flex justify-end">
-                <button
-                    onClick={generateInvoicePDF}
-                    className="btn-primary flex items-center gap-2"
-                >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11V3m0 0l3.5 3.5M12 3L8.5 6.5M12 21h8m-8 0H4m8 0v-4" />
-                    </svg>
-                    Generate PDF Invoice
-                </button>
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">Total Amount (₹)</label>
+                <input type="number" className="input-modern w-full" value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} onWheel={(e) => e.target.blur()} />
+              </div>
             </div>
-</div>
-{ticket && (
-  <EmailSmsForm ticket={{ ...ticket, id: ticketId, bookingType }} />
-)}
 
+            {/* --- SIMPLIFIED INVOICE RENDERING --- */}
+            <div id="invoice-export" className="my-6 flex justify-center bg-gray-800 p-4 rounded-lg shadow-md">
+              <Invoice
+                ticket={ticket}
+                ticketId={ticketId}
+                bookingType={bookingType}
+                totalAmount={totalAmount}
+                sgst={sgst}
+                cgst={cgst}
+                igst={igst}
+                partyName={partyName}
+                partyGST={partyGST}
+                invoiceType={invoiceType}
+              />
+            </div>
 
+            <div className="mt-6 flex justify-end">
+              <button onClick={generateInvoicePDF} className="btn-primary flex items-center gap-2">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11V3m0 0l3.5 3.5M12 3L8.5 6.5M12 21h8m-8 0H4m8 0v-4" />
+                </svg>
+                Generate PDF Invoice
+              </button>
+            </div>
+          </div>
+
+          {ticket && <EmailSmsForm ticket={{ ...ticket, id: ticketId, bookingType }} />}
         </div>
       </div>
     </div>
