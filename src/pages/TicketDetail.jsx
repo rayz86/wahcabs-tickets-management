@@ -7,10 +7,12 @@ import { db } from "../firebase/config";
 import Sidebar from "../components/Sidebar";
 import jsPDF from "jspdf";
 import domtoimage from "dom-to-image-more";
-import EmailSmsForm from "../components/EmailSmsForm";
 
 // Import the new unified Invoice component
 import Invoice from "../components/invoices/invoice";
+// Import the new NotificationCenter
+import NotificationCenter from "../components/NotificationCentre";
+
 
 export default function TicketDetail() {
   const { bookingType, ticketId } = useParams();
@@ -40,7 +42,9 @@ export default function TicketDetail() {
     const snap = await getDoc(ref);
     if (snap.exists()) {
       const data = snap.data();
-      setTicket(data);
+      // Combine ticket data with id and bookingType for easier prop passing
+      const fullTicketData = { ...data, id: ticketId, bookingType };
+      setTicket(fullTicketData);
       setStatus(data.status);
       setActions(data.actions || "");
       setTotalAmount(String(data.price || "0"));
@@ -104,20 +108,14 @@ export default function TicketDetail() {
       console.error("The invoice content element was not found!");
       return;
     }
-    // Clone the node to avoid modifying the one on screen
     const clone = originalNode.cloneNode(true);
-
-    // Position the clone off-screen so it's not visible
     clone.style.position = 'absolute';
     clone.style.top = '-9999px';
     clone.style.left = '0px';
     clone.style.width = originalNode.offsetWidth + 'px';
     
-    // **FIXED LOGIC**: Remove borders and shadows from the clone before generating the image.
-    // This cleans up the styles from the container `div` but preserves the invoice's own styles.
     const allElements = clone.querySelectorAll('*');
     allElements.forEach((el) => {
-      // We keep the border for the amount box for styling purposes.
       if (el.id !== 'amount-box') {
         el.style.border = 'none';
         el.style.outline = 'none';
@@ -125,21 +123,18 @@ export default function TicketDetail() {
       }
     });
 
-    // The parent container of the invoice preview also has styles that need to be removed.
     const parentContainer = document.getElementById("invoice-export");
     const parentClone = parentContainer.cloneNode(true);
     parentClone.style.backgroundColor = 'transparent';
     parentClone.style.padding = '0';
     parentClone.style.boxShadow = 'none';
     
-    // Replace the invoice clone with the cleaned parent clone for rendering
     parentClone.innerHTML = '';
     parentClone.appendChild(clone);
     document.body.appendChild(parentClone);
 
 
     try {
-      // Generate the image from the modified clone
       const dataUrl = await domtoimage.toPng(clone, { quality: 1.0, scale: 2 });
       const pdf = new jsPDF("p", "mm", "a4", true);
       const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -150,7 +145,6 @@ export default function TicketDetail() {
     } catch (error) {
       console.error("PDF generation failed!", error);
     } finally {
-      // Clean up by removing the clone from the DOM
       document.body.removeChild(parentClone);
     }
   };
@@ -321,7 +315,6 @@ export default function TicketDetail() {
               </div>
             </div>
 
-            {/* --- SIMPLIFIED INVOICE RENDERING --- */}
             <div id="invoice-export" className="my-6 flex justify-center bg-gray-800 p-4 rounded-lg shadow-md">
               <Invoice
                 ticket={ticket}
@@ -347,7 +340,10 @@ export default function TicketDetail() {
             </div>
           </div>
 
-          {ticket && <EmailSmsForm ticket={{ ...ticket, id: ticketId, bookingType }} />}
+          {/* --- THIS IS THE NEW PART --- */}
+          {/* Replace the old EmailSmsForm with the new NotificationCenter */}
+          <NotificationCenter ticket={ticket} />
+
         </div>
       </div>
     </div>
