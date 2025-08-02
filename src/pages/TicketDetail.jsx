@@ -1,64 +1,104 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
 import { db } from "../firebase/config";
 import Sidebar from "../components/Sidebar";
 import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
+import domtoimage from "dom-to-image-more";
 import RegularGoaInvoice from "../components/invoices/RegularGoaInvoice";
 import RegularOutstationInvoice from "../components/invoices/RegularOutstationInvoice";
 import GSTGoaInvoice from "../components/invoices/GSTGoaInvoice";
 import GSTOutstationInvoice from "../components/invoices/GSTOutstationInvoice";
-import domtoimage from "dom-to-image-more";
 import EmailSmsForm from "../components/EmailSmsForm";
-
 
 export default function TicketDetail() {
   const { bookingType, ticketId } = useParams();
   const [ticket, setTicket] = useState(null);
   const [status, setStatus] = useState("");
   const [actions, setActions] = useState("");
-  const [payment, setPayment] = useState("");
   const navigate = useNavigate();
-  const invoiceTypes = [
-  "Regular - Goa",
-  "Regular - Outstation",
-  "GST - Goa",
-  "GST - Outstation",
-];
+
+  // New state for payment management
+  const [newPaymentAmount, setNewPaymentAmount] = useState("");
+  const [newPaymentNote, setNewPaymentNote] = useState("");
+  const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
+
+  // State for invoice generation
+  const [invoiceType, setInvoiceType] = useState("Regular - Goa");
+  const [partyName, setPartyName] = useState("");
+  const [partyGST, setPartyGST] = useState("");
+  const [sgst, setSGST] = useState("");
+  const [cgst, setCGST] = useState("");
+  const [igst, setIGST] = useState("");
+  const [totalAmount, setTotalAmount] = useState("0");
+
+  const invoiceTypes = ["Regular - Goa", "Regular - Outstation", "GST - Goa", "GST - Outstation"];
+
+  const fetchTicket = async () => {
+    const ref = doc(db, "tickets", bookingType, "bookings", ticketId);
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+      const data = snap.data();
+      setTicket(data);
+      setStatus(data.status);
+      setActions(data.actions || "");
+      setTotalAmount(String(data.price || "0"));
+    }
+  };
 
   useEffect(() => {
-    const fetchTicket = async () => {
-      const ref = doc(db, "tickets", bookingType, "bookings", ticketId);
-      const snap = await getDoc(ref);
-      if (snap.exists()) {
-        const data = snap.data();
-        setTicket(data);
-        setStatus(data.status);
-        setActions(data.actions || "");
-        setPayment(data.payment || "0");
-        setTotalAmount(data.amount || "0");
-      }
-    };
     fetchTicket();
   }, [bookingType, ticketId]);
 
-  const handleSave = async () => {
+  const handleUpdateTicketDetails = async () => {
     const ref = doc(db, "tickets", bookingType, "bookings", ticketId);
-    await updateDoc(ref, { status, actions, payment });
-    alert("✅ Ticket updated!");
-    navigate(`/dashboard/${bookingType}`);
+    await updateDoc(ref, { status, actions });
+    alert("✅ Ticket details updated!");
   };
-const [invoiceType, setInvoiceType] = useState("Regular - Goa");
 
-const [partyName, setPartyName] = useState("");
-const [partyGST, setPartyGST] = useState("");
+  const handleAddPayment = async () => {
+    const amount = parseFloat(newPaymentAmount);
+    if (isNaN(amount) || amount <= 0) {
+      alert("Please enter a valid payment amount.");
+      return;
+    }
+    if (isSubmittingPayment) return;
+    setIsSubmittingPayment(true);
 
-const [sgst, setSGST] = useState("");
-const [cgst, setCGST] = useState("");
-const [igst, setIGST] = useState("");
+    const ticketRef = doc(db, "tickets", bookingType, "bookings", ticketId);
 
-const [totalAmount, setTotalAmount] = useState("4000"); // can be fetched dynamically
+    try {
+      const newPaymentRecord = {
+        amount: amount,
+        note: newPaymentNote || "Payment received",
+        date: new Date().toISOString(),
+      };
+
+      // Calculate new totals
+      const currentTotalPaid = Number(ticket.payment) || 0;
+      const newTotalPaid = currentTotalPaid + amount;
+      const newPendingAmount = (Number(ticket.price) || 0) - newTotalPaid;
+
+      // Update Firestore document
+      await updateDoc(ticketRef, {
+        payment: newTotalPaid,
+        pendingAmount: newPendingAmount,
+        paymentHistory: arrayUnion(newPaymentRecord),
+      });
+
+      // Reset form and refetch data to show updated state
+      setNewPaymentAmount("");
+      setNewPaymentNote("");
+      await fetchTicket(); // Refetch to get the latest ticket data
+      alert("✅ Payment added successfully!");
+
+    } catch (error) {
+      console.error("Error adding payment:", error);
+      alert("❌ Failed to add payment. Please try again.");
+    } finally {
+      setIsSubmittingPayment(false);
+    }
+  };
 
 const generateInvoicePDF = async () => {
   const originalNode = document.getElementById("invoice-content");
@@ -110,7 +150,7 @@ const generateInvoicePDF = async () => {
   }
 };
 
-  if (!ticket)
+  if (!ticket) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-black">
         <Sidebar selected={bookingType} />
@@ -122,173 +162,114 @@ const generateInvoicePDF = async () => {
         </div>
       </div>
     );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-black">
       <Sidebar selected={bookingType} />
       <div className="ml-80 p-8 min-h-screen relative overflow-hidden">
-        {/* Background decorations */}
         <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-indigo-500/5"></div>
-        
         <div className="relative z-10">
           <div className="flex items-center justify-between mb-8">
             <h1 className="text-3xl font-bold text-white">{bookingType} - Ticket Details</h1>
-            <button
-              onClick={() => navigate(`/dashboard/${bookingType}`)}
-              className="btn-secondary"
-            >
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
-              Back to {bookingType}
+            <button onClick={() => navigate(`/dashboard/${bookingType}`)} className="btn-secondary">
+              Back
             </button>
           </div>
 
           {/* Ticket Info Card */}
           <div className="card p-8 mb-8">
             <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
-                  <span className="text-xl">🎫</span>
-                </div>
                 <div>
                   <h2 className="text-xl font-bold text-white">Booking ID: {ticketId}</h2>
-                  <p className="text-gray-400">Ticket Management</p>
                 </div>
-              </div>
-              
-              <span
-                className={`px-4 py-2 rounded-full text-sm font-semibold ${
-                  status === "Active"
-                    ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white"
-                    : status === "Processed"
-                    ? "bg-gradient-to-r from-yellow-500 to-orange-500 text-white"
-                    : status === "Cancelled"
-                    ? "bg-gradient-to-r from-red-500 to-pink-500 text-white"
-                    : "bg-gradient-to-r from-gray-500 to-gray-600 text-white"
-                }`}
-              >
-                {status}
-              </span>
+                <span className={`px-4 py-2 rounded-full text-sm font-semibold ${
+                  status === "Active" ? "bg-green-500/20 text-green-400" :
+                  status === "Processed" ? "bg-yellow-500/20 text-yellow-400" :
+                  status === "Cancelled" ? "bg-red-500/20 text-red-400" :
+                  "bg-gray-500/20 text-gray-400"
+                }`}>
+                  {status}
+                </span>
             </div>
 
-            {/* Customer Details */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-              <div>
-                <label className="text-sm text-gray-400 font-medium">Customer Name</label>
-                <p className="text-white font-semibold">{ticket.custName}</p>
-              </div>
-              <div>
-                <label className="text-sm text-gray-400 font-medium">Customer Email</label>
-                <p className="text-white font-semibold">{ticket.custEmail}</p>
-              </div>
-              <div>
-                <label className="text-sm text-gray-400 font-medium">Phone</label>
-                <p className="text-white font-semibold">{ticket.custPhone || "N/A"}</p>
-              </div>
-              <div>
-                <label className="text-sm text-gray-400 font-medium">Vehicle</label>
-                <p className="text-white font-semibold">{ticket.vehicle}</p>
-              </div>
-              <div>
-                <label className="text-sm text-gray-400 font-medium">Amount Payable</label>
-                <p className="text-green-400 font-bold text-lg">₹{ticket.amount}</p>
-              </div>
-              <div>
-                <label className="text-sm text-gray-400 font-medium">Guests</label>
-                <p className="text-white font-semibold">{ticket.passengers || "—"}</p>
-              </div>
-              <div>
-                <label className="text-sm text-gray-400 font-medium">Date</label>
-                <p className="text-white font-semibold">{ticket.date}</p>
-              </div>
-              <div>
-                <label className="text-sm text-gray-400 font-medium">From</label>
-                <p className="text-white font-semibold">{ticket.fromLoc}</p>
-              </div>
-              <div>
-                <label className="text-sm text-gray-400 font-medium">To</label>
-                <p className="text-white font-semibold">{ticket.toLoc}</p>
-              </div>
-              
-              {(bookingType === "Local Rides" || bookingType === "Outstation Rides") && ticket.tripType && ticket.tripType !== "N/A" && (
-                <div>
-                  <label className="text-sm text-gray-400 font-medium">Trip Type</label>
-                  <p className="text-white font-semibold">{ticket.tripType}</p>
-                </div>
-              )}
-              
-              {(bookingType === "Local Rides" || bookingType === "Outstation Rides") && ticket.kmsSlab && (
-                <div>
-                  <label className="text-sm text-gray-400 font-medium">KMs Slab</label>
-                  <p className="text-white font-semibold">{ticket.kmsSlab}</p>
-                </div>
-              )}
-              
-              {(bookingType === "Local Rides" || bookingType === "Outstation Rides") && ticket.rideType && (
-                <div>
-                  <label className="text-sm text-gray-400 font-medium">Ride Type</label>
-                  <p className="text-white font-semibold">{ticket.rideType}</p>
-                </div>
-              )}
+            {/* Customer & Booking Details */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 border-b border-gray-800 pb-8">
+              <div><label className="text-sm text-gray-400">Customer</label><p className="text-white">{ticket.custName}</p></div>
+              <div><label className="text-sm text-gray-400">Email</label><p className="text-white">{ticket.custEmail}</p></div>
+              <div><label className="text-sm text-gray-400">Phone</label><p className="text-white">{ticket.custPhone}</p></div>
+              <div><label className="text-sm text-gray-400">Vehicle</label><p className="text-white">{ticket.vehicle}</p></div>
+              <div><label className="text-sm text-gray-400">Guests</label><p className="text-white">{ticket.passengers}</p></div>
+              <div><label className="text-sm text-gray-400">Date</label><p className="text-white">{ticket.date}</p></div>
+              <div><label className="text-sm text-gray-400">From</label><p className="text-white">{ticket.fromLoc}</p></div>
+              <div><label className="text-sm text-gray-400">To</label><p className="text-white">{ticket.toLoc}</p></div>
+            </div>
+
+            {/* Payment Details */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div><label className="text-sm text-gray-400">Amount Payable</label><p className="text-2xl font-bold text-blue-400">₹{Number(ticket.price || 0).toLocaleString()}</p></div>
+                <div><label className="text-sm text-gray-400">Total Paid</label><p className="text-2xl font-bold text-green-400">₹{Number(ticket.payment || 0).toLocaleString()}</p></div>
+                <div><label className="text-sm text-gray-400">Pending Amount</label><p className="text-2xl font-bold text-red-400">₹{Number(ticket.pendingAmount || 0).toLocaleString()}</p></div>
             </div>
           </div>
 
-          {/* Management Section */}
-          <div className="card p-8">
-            <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
-              <span className="text-blue-400">⚙️</span>
-              Ticket Management
-            </h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {/* Status */}
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">Current Status</label>
-                <select
-                  className="input-modern w-full"
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                >
-                  <option value="Active">Active</option>
-                  <option value="Processed">Processed</option>
-                  <option value="Closed">Closed</option>
-                  <option value="Cancelled">Cancelled</option>
-                </select>
+          {/* Payment History and Management */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Add Payment & History */}
+            <div className="card p-8">
+              <h3 className="text-xl font-bold text-white mb-6">Payment History</h3>
+              {/* New Payment Form */}
+              <div className="space-y-4 mb-8 p-4 border border-gray-800 rounded-lg">
+                  <h4 className="font-semibold text-white">Add New Payment</h4>
+                  <div>
+                      <label className="block text-sm font-medium text-gray-400 mb-2">Amount (₹)</label>
+                      <input type="number" className="input-modern w-full" placeholder="e.g., 500" value={newPaymentAmount} onChange={(e) => setNewPaymentAmount(e.target.value)} />
+                  </div>
+                  <div>
+                      <label className="block text-sm font-medium text-gray-400 mb-2">Note (Optional)</label>
+                      <input type="text" className="input-modern w-full" placeholder="e.g., Advance via UPI" value={newPaymentNote} onChange={(e) => setNewPaymentNote(e.target.value)} />
+                  </div>
+                  <button onClick={handleAddPayment} className="btn-primary w-full" disabled={isSubmittingPayment}>
+                      {isSubmittingPayment ? "Submitting..." : "Add Payment"}
+                  </button>
               </div>
 
-              {/* Payment */}
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">Payment Received (₹)</label>
-                <input
-                  type="number"
-                  className="input-modern w-full"
-                  placeholder="Enter payment amount"
-                  value={payment}
-                  onChange={(e) => setPayment(e.target.value)}
-                />
+              {/* History List */}
+              <div className="space-y-3">
+                {(ticket.paymentHistory && ticket.paymentHistory.length > 0) ? (
+                  ticket.paymentHistory.slice().reverse().map((p, index) => (
+                    <div key={index} className="flex justify-between items-center bg-gray-900/50 p-3 rounded-lg">
+                      <div>
+                        <p className="font-semibold text-white">₹{p.amount.toLocaleString()}</p>
+                        <p className="text-xs text-gray-400">{p.note}</p>
+                      </div>
+                      <p className="text-xs text-gray-500">{new Date(p.date).toLocaleString()}</p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-center text-gray-500 py-4">No payment history.</p>
+                )}
               </div>
             </div>
 
-            {/* Actions */}
-            <div className="mt-6">
-              <label className="block text-sm font-medium text-gray-400 mb-2">Actions Taken / Notes</label>
-              <textarea
-                className="input-modern w-full h-32 resize-none"
-                placeholder="Enter any actions taken or notes about this ticket..."
-                value={actions}
-                onChange={(e) => setActions(e.target.value)}
-              />
-            </div>
-
-            {/* Save Button */}
-            <div className="mt-8 flex justify-end">
-              <button onClick={handleSave} className="btn-primary">
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                Save Changes
-              </button>
+            {/* Ticket Management */}
+            <div className="card p-8">
+              <h3 className="text-xl font-bold text-white mb-6">Ticket Management</h3>
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">Current Status</label>
+                  <select className="input-modern w-full" value={status} onChange={(e) => setStatus(e.target.value)}>
+                    <option>Active</option><option>Processed</option><option>Closed</option><option>Cancelled</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">Actions / Notes</label>
+                  <textarea className="input-modern w-full h-32" value={actions} onChange={(e) => setActions(e.target.value)} />
+                </div>
+                <div className="flex justify-end">
+                  <button onClick={handleUpdateTicketDetails} className="btn-secondary">Save Ticket Details</button>
+                </div>
+              </div>
             </div>
           </div>
           {/* {INVOICE GENERATION} */}

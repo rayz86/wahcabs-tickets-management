@@ -129,7 +129,8 @@ export default function TicketTable({ tickets, onSelect, bookingType }) {
                 
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className="text-lg font-bold text-green-400">
-                    ₹{ticket.amount?.toLocaleString() || '0'}
+                    {/* FIXED: Changed ticket.amount to ticket.price */}
+                    ₹{ticket.price?.toLocaleString() || '0'}
                   </span>
                 </td>
                 
@@ -142,10 +143,12 @@ export default function TicketTable({ tickets, onSelect, bookingType }) {
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm">
                     <span className="font-semibold text-white">
+                      {/* This now correctly shows the total paid amount */}
                       ₹{ticket.payment?.toLocaleString() || '0'}
                     </span>
                     <div className="text-xs text-gray-400">
-                      {ticket.payment ? 'Paid' : 'Pending'}
+                      {/* This logic can be improved later with pendingAmount */}
+                      {ticket.pendingAmount > 0 ? 'Pending' : 'Paid'}
                     </div>
                   </div>
                 </td>

@@ -142,7 +142,7 @@ export default function TicketListPage() {
                 <span className="text-gray-400 text-sm">Revenue</span>
               </div>
               <div className="text-2xl font-bold text-purple-400">
-                ₹{tickets.reduce((sum, t) => sum + (parseInt(t.amount) || 0), 0).toLocaleString()}
+                ₹{tickets.reduce((sum, t) => sum + (Number(t.price) || 0), 0).toLocaleString()}
               </div>
             </div>
           </div>
