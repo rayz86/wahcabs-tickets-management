@@ -1,9 +1,12 @@
 import Sidebar from "../components/Sidebar";
 import { useNavigate } from "react-router-dom";
 import { bookingTypes } from "../components/Sidebar";
+import { useAuth } from "../context/AuthContext";
 
 export default function Dashboard() {
   const navigate = useNavigate();
+              const { logout, user } = useAuth();
+
 
   const stats = [
     { label: "Total Bookings", value: "2,847", change: "+12.5%", icon: "📊", color: "from-emerald-500 to-teal-500" },
@@ -34,6 +37,13 @@ export default function Dashboard() {
                   Manage your transportation business with ease
                 </p>
               </div>
+
+<button
+  onClick={logout}
+  className="bg-red-500 px-4 py-2 rounded text-white hover:bg-red-600"
+>
+  Sign Out
+</button>
               <div className="flex items-center gap-4">
                 <div className="text-right">
                   <div className="text-sm text-gray-400">Today</div>
